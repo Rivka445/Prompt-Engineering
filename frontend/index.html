@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CLI Command Generator</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    
+    .container {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+    }
+    
+    h1 {
+      color: #667eea;
+      margin-bottom: 30px;
+      text-align: center;
+      font-size: 2em;
+    }
+    
+    .input-group {
+      margin-bottom: 20px;
+    }
+    
+    textarea {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e0e0e0;
+      border-radius: 10px;
+      font-size: 16px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 100px;
+      transition: border-color 0.3s;
+    }
+    
+    textarea:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    
+    button {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    button:active {
+      transform: translateY(0);
+    }
+    
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    .result {
+      margin-top: 30px;
+      padding: 20px;
+      background: #f5f5f5;
+      border-radius: 10px;
+      border-right: 4px solid #667eea;
+    }
+    
+    .result h3 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .command {
+      background: #2d2d2d;
+      color: #00ff00;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 16px;
+      direction: ltr;
+      text-align: left;
+      word-break: break-all;
+    }
+    
+    .error {
+      background: #ffebee;
+      border-right-color: #f44336;
+    }
+    
+    .error .command {
+      background: #ffcdd2;
+      color: #c62828;
+    }
+    
+    .loading {
+      text-align: center;
+      color: #667eea;
+      font-size: 18px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🖥️ מחולל פקודות CLI</h1>
+    
+    <div class="input-group">
+      <textarea 
+        id="promptInput" 
+        placeholder="כתוב כאן מה אתה רוצה לעשות... (לדוגמה: 'מה כתובת ה-IP של המחשב שלי')"
+      ></textarea>
+    </div>
+    
+    <button id="analyzeBtn" onclick="analyze()">נתח ויצור פקודה</button>
+    
+    <div id="loading" class="loading" style="display: none;">
+      ⏳ מעבד את הבקשה...
+    </div>
+    
+    <div id="result" style="display: none;"></div>
+  </div>
+
+  <script>
+    async function analyze() {
+      const prompt = document.getElementById('promptInput').value.trim();
+      const resultDiv = document.getElementById('result');
+      const loadingDiv = document.getElementById('loading');
+      const btn = document.getElementById('analyzeBtn');
+      
+      if (!prompt) {
+        alert('אנא כתוב בקשה');
+        return;
+      }
+      
+      btn.disabled = true;
+      loadingDiv.style.display = 'block';
+      resultDiv.style.display = 'none';
+      
+      try {
+        const response = await fetch('http://localhost:3000/analyze', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ prompt })
+        });
+        
+        const data = await response.json();
+        
+        loadingDiv.style.display = 'none';
+        resultDiv.style.display = 'block';
+        
+        if (data.error) {
+          resultDiv.className = 'result error';
+          resultDiv.innerHTML = `
+            <h3>❌ שגיאה</h3>
+            <div class="command">${data.error}</div>
+          `;
+        } else {
+          resultDiv.className = 'result';
+          const command = data['CLI Command'] || JSON.stringify(data, null, 2);
+          resultDiv.innerHTML = `
+            <h3>✅ הפקודה שלך:</h3>
+            <div class="command">${command}</div>
+          `;
+        }
+      } catch (error) {
+        loadingDiv.style.display = 'none';
+        resultDiv.style.display = 'block';
+        resultDiv.className = 'result error';
+        resultDiv.innerHTML = `
+          <h3>❌ שגיאת חיבור</h3>
+          <div class="command">לא ניתן להתחבר לשרת. ודא שהשרת רץ על http://localhost:3000</div>
+        `;
+      } finally {
+        btn.disabled = false;
+      }
+    }
+    
+    // אפשר שליחה עם Enter (Ctrl+Enter)
+    document.getElementById('promptInput').addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.key === 'Enter') {
+        analyze();
+      }
+    });
+  </script>
+</body>
+</html>
